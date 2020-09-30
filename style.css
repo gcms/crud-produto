@@ -1,0 +1,38 @@
+.invisible {
+  display: none;
+}
+
+#listar .item-template {
+  display: none;
+}
+
+#listar table {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+#listar table>tr {
+  list-style: none;
+  padding: 0.5em 0;
+  cursor: pointer;
+}
+
+
+#exibir>div {
+  margin-bottom: 1em;
+}
+
+#exibir>div>label {
+  font-weight: bold;
+  display: block;
+}
+
+#editar>form>p {
+  margin-bottom: 1em;
+}
+
+#editar>form label {
+  font-weight: bold;
+  display: block;
+}

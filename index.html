@@ -1,0 +1,73 @@
+<html>
+
+<head>
+  <title>Produtos</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="text/javascript" src="script.js"></script>
+  <meta charset="UTF-8">
+
+</head>
+
+<body>
+  <div id="conteudo">
+    <div id="listar">
+      <table>
+
+      </table>
+      <button onclick="exibaCadastroProduto()">Novo</button>
+    </div>
+    <div id="exibir" class="invisible">
+      <div>
+        <label>Código</label>
+        <span id="codigo">00000</span>
+      </div>
+
+      <div>
+        <label>Nome</label>
+        <span id="nome">Produto 1</span>
+      </div>
+
+      <div>
+        <label>Descrição</label>
+        <span id="descricao">Este produto é interessante</span>
+      </div>
+
+      <div>
+        <label>Preço</label>
+        <span id="preco">R$ 10,00</span>
+      </div>
+
+      <button onclick="exibaListagem()">Voltar</button>
+      <button onclick="altereProduto()">Alterar</button>
+      <button onclick="excluaProduto()">Excluir</button>
+
+    </div>
+    <div id="editar" class="invisible">
+      <form>
+        <p>
+          <label for="codigo">Código</label>
+          <input type="text" name="codigo" />
+        </p>
+        <p>
+          <label for="nome">Nome</label>
+          <input type="text" name="nome" />
+        </p>
+        <p>
+          <label for="nome">Descrição</label>
+          <textarea name="descricao"></textarea>
+        </p>
+        <p>
+          <label for="preco">Preço</label>
+          <input type="text" name="preco" />
+        </p>
+        <p>
+          <button type="button" onclick="cadastreProduto()">Cadastrar</button>
+          <button type="button" onclick="exibaListagem()">Cancelar</button>
+        </p>
+      </form>
+    </div>
+  </div>
+
+</body>
+
+</html>
