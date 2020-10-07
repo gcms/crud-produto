@@ -1,50 +1,78 @@
+
+// IndexedDB
+// Na linha abaixo, você deve incluir os prefixos do navegador que você vai testar.
+window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+// Não use "var indexedDB = ..." se você não está numa function.
+// Posteriormente, você pode precisar de referências de algum objeto window.IDB*:
+window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction;
+window.IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
+// (Mozilla nunca usou prefixo nesses objetos, então não precisamos window.mozIDB*)
+
+
+function withStore(success, error) {
+  var request = window.indexedDB.open("produto", 3);
+  request.onerror = function (event) {
+    return error('Database error: ' + event.target.errorCode);
+  };
+  request.onupgradeneeded = function (event) {
+    let db = event.target.result;
+    return db.createObjectStore("produtos", { keyPath: "codigo" });
+    // return cb(store);
+  }
+  request.onsuccess = function (event) {
+    let db = event.target.result;
+    let tx = db.transaction('produtos', 'readwrite');
+    return success(tx.objectStore('produtos'));
+  }
+}
+
+
 // Model
-var PRODUTOS = [];
 var PRODUTO_SELECIONADO;
 
-function insiraProduto(produto) {
-  if (!obtenhaProdutoPorCodigo(produto.codigo)) {
-    PRODUTOS.push(produto);
-    return produto;
-  }
-    
-  return false;
+function insiraProduto(produto, success, error) {
+  return withStore(function (store) {
+    let request = store.add(produto);
+    request.onsuccess = () => success(produto);
+    request.onerror = () => error('Database error: ' + event.target.errorCode);
+    return request;
+  });
 }
 
-function obtenhaListaProdutos() {
-  return PRODUTOS;
+function obtenhaListaProdutos(success) {
+  return withStore(function (store) {
+    let request = store.getAll();
+    request.onsuccess = (event) => success(event.target.result);
+    request.onerror = (event) => error('Database error: ' + event.target.errorCode);
+    return request;
+  });
 }
 
-function obtenhaProdutoPorCodigo(codigo) {
-  let produto = null;
-  for (let i = 0; i < PRODUTOS.length; i++) {
-    if (PRODUTOS[i].codigo == codigo) {
-      produto = PRODUTOS[i];
-      break;
-    }
-  }
-
-  return produto;
-}
-
-function removaProdutoPorCodigo(codigo) {
-  PRODUTOS = PRODUTOS.filter(function (it) { return it.codigo != codigo });
+function obtenhaProdutoPorCodigo(codigo, success, error) {
+  return withStore(function (store) {
+    let request = store.get(codigo);
+    request.onsuccess = (event) => success(event.target.result);
+    request.onerror = (event) => error('Database error: ' + event.target.errorCode);
+    return request;
+  });
 }
 
 function selecioneProduto(codigo) {
-  PRODUTO_SELECIONADO = obtenhaProdutoPorCodigo(codigo);
-  exibaDadosProduto(PRODUTO_SELECIONADO);
+  obtenhaProdutoPorCodigo(codigo,
+    (produto) => {
+      PRODUTO_SELECIONADO = produto;
+      exibaDadosProduto(produto)
+    });
 }
 
-function excluaProdutoSelecionado(codigo) {
-  PRODUTOS = PRODUTOS.filter(it => it != PRODUTO_SELECIONADO);
+function excluaProdutoSelecionado(success, error) {
+  return withStore(function (store) {
+    let request = store.delete(PRODUTO_SELECIONADO.codigo);
+    request.onsuccess = (event) => success(event.target.result);
+    request.onerror = (event) => error('Database error: ' + event.target.errorCode);
+    return request;
+  });
 }
-
-
-function obtenhaProdutoSelecionado() {
-  return PRODUTO_SELECIONADO;
-}
-
 
 // View
 function exiba(id) {
@@ -60,12 +88,9 @@ function exiba(id) {
   }
 }
 
-
-function exibaListagem() {
+function atualizeListaProdutos(produtos) {
   const table = document.querySelector("#listar table");
   table.innerHTML = "";
-
-  let produtos = obtenhaListaProdutos();
 
   for (let i = 0; i < produtos.length; i++) {
     let produto = produtos[i];
@@ -82,6 +107,10 @@ function exibaListagem() {
     nome.innerHTML = produto.nome;
     tr.appendChild(nome);
   }
+}
+
+function exibaListagem() {
+  obtenhaListaProdutos((produtos) => atualizeListaProdutos(produtos));
 
   exiba("listar");
 }
@@ -123,8 +152,8 @@ window.onload = function () {
   exibaListagem();
 
   document.querySelectorAll('form input').forEach(it => {
-    it.onkeypress = function(e) {
-      if(e.which == 10 || e.which == 13) {
+    it.onkeypress = function (e) {
+      if (e.which == 10 || e.which == 13) {
         cadastreProduto();
       }
     }
@@ -138,16 +167,16 @@ function cadastreProduto() {
 
   if (!produto.codigo || !produto.nome || !produto.preco) {
     alert("Dados não fornecidos!");
-  } else if (!insiraProduto(produto)) {
-    alert("Não foi possível inserir!");
   } else {
-    exibaListagem();
+    insiraProduto(produto,
+      () => exibaListagem(),
+      () => alert("Não foi possível inserir!"));
   }
 }
 
 function excluaProduto() {
-  excluaProdutoSelecionado()
-  exibaListagem();
+  excluaProdutoSelecionado(
+    () => exibaListagem());
 }
 
 function mostreProduto(codigo) {
