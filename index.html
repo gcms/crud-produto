@@ -14,11 +14,11 @@
       <table>
 
       </table>
-      <button onclick="exibaCadastroProduto()">Novo</button>
+      <button id="novo">Novo</button>
     </div>
     <div id="exibir" class="invisible">
       <div>
-        <label>Código</label>
+        <label>Id</label>
         <span id="codigo">00000</span>
       </div>
 
@@ -37,17 +37,14 @@
         <span id="preco">R$ 10,00</span>
       </div>
 
-      <button onclick="exibaListagem()">Voltar</button>
-      <button onclick="altereProduto()">Alterar</button>
-      <button onclick="excluaProduto()">Excluir</button>
+      <button id="view-back">Voltar</button>
+      <button id="view-edit">Alterar</button>
+      <button id="view-delete">Excluir</button>
 
     </div>
     <div id="editar" class="invisible">
       <form>
-        <p>
-          <label for="codigo">Código</label>
-          <input type="text" name="codigo" />
-        </p>
+        <input type="hidden" name="id" />
         <p>
           <label for="nome">Nome</label>
           <input type="text" name="nome" />
@@ -61,8 +58,8 @@
           <input type="text" name="preco" />
         </p>
         <p>
-          <button type="button" onclick="cadastreProduto()">Cadastrar</button>
-          <button type="button" onclick="exibaListagem()">Cancelar</button>
+          <button type="button" id="create-submit">Enviar</button>
+          <button type="button" id="create-cancel">Cancelar</button>
         </p>
       </form>
     </div>

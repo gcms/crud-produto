@@ -1,0 +1,16 @@
+{
+  "produtos": [
+    {
+      "id": 121,
+      "nome": "Liquidificador",
+      "descricao": "",
+      "preco": "124.6"
+    },
+    {
+      "id": 122,
+      "nome": "Máquina de Lavar",
+      "descricao": "",
+      "preco": "1242.2"
+    }
+  ]
+}

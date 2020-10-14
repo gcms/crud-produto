@@ -1,184 +1,263 @@
-
-// IndexedDB
-// Na linha abaixo, você deve incluir os prefixos do navegador que você vai testar.
-window.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-// Não use "var indexedDB = ..." se você não está numa function.
-// Posteriormente, você pode precisar de referências de algum objeto window.IDB*:
-window.IDBTransaction = window.IDBTransaction || window.webkitIDBTransaction || window.msIDBTransaction;
-window.IDBKeyRange = window.IDBKeyRange || window.webkitIDBKeyRange || window.msIDBKeyRange;
-// (Mozilla nunca usou prefixo nesses objetos, então não precisamos window.mozIDB*)
-
-
-function withStore(success, error) {
-  var request = window.indexedDB.open("produto", 3);
-  request.onerror = function (event) {
-    return error('Database error: ' + event.target.errorCode);
-  };
-  request.onupgradeneeded = function (event) {
-    let db = event.target.result;
-    return db.createObjectStore("produtos", { keyPath: "codigo" });
-    // return cb(store);
-  }
-  request.onsuccess = function (event) {
-    let db = event.target.result;
-    let tx = db.transaction('produtos', 'readwrite');
-    return success(tx.objectStore('produtos'));
-  }
-}
+const BASE_URL = "http://localhost:3000/produtos";
 
 
 // Model
-var PRODUTO_SELECIONADO;
+class ProdutoModel {
+  observers = [];
+  selecionado = null;
 
-function insiraProduto(produto, success, error) {
-  return withStore(function (store) {
-    let request = store.add(produto);
-    request.onsuccess = () => success(produto);
-    request.onerror = () => error('Database error: ' + event.target.errorCode);
-    return request;
-  });
+  addObserver(observer) {
+    this.observers.push(observer);
+  }
+
+  obtenhaListaProdutos(success, error) {
+    return fetch(BASE_URL)
+      .then(response => response.json())
+      .then(products => success(products))
+      .catch(err => error(err.message));
+  }
+
+  obtenhaProdutoPorCodigo(codigo, success, error) {
+    return fetch(BASE_URL + "/" + codigo)
+      .then(response => response.json())
+      .then(product => success(product))
+      .catch(err => error ? error(err.message) : undefined);
+  }
+
+  insiraProduto(produto, success, error) {
+    return fetch(BASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(produto)
+    })
+      .then(response => response.json())
+      .then(product => success(product))
+      .catch(err => error(err.message));
+  }
+
+  atualizeProduto(produto, success, error) {
+    return fetch(BASE_URL + "/" + produto.id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(produto)
+    })
+      .then(response => response.json())
+      .then(product => success(product))
+      .catch(err => error(err.message));
+  }
+
+  selecioneProduto(codigo) {
+    this.obtenhaProdutoPorCodigo(codigo,
+      (produto) => {
+        this.selecionado = produto;
+        this.observers.forEach(it => it.onProdutoSelecionado(produto));
+      });
+  }
+
+  excluaProdutoSelecionado(success, error) {
+    return fetch(BASE_URL + "/" + this.selecionado.id, { method: 'DELETE' })
+      .then(response => response.json()).then(success).catch(err => error ? error(err.message) : undefined);
+  }
+
+  obtenhaProdutoSelecionado(success, error) {
+    return success(this.selecionado);
+  }
 }
 
-function obtenhaListaProdutos(success) {
-  return withStore(function (store) {
-    let request = store.getAll();
-    request.onsuccess = (event) => success(event.target.result);
-    request.onerror = (event) => error('Database error: ' + event.target.errorCode);
-    return request;
-  });
-}
 
-function obtenhaProdutoPorCodigo(codigo, success, error) {
-  return withStore(function (store) {
-    let request = store.get(codigo);
-    request.onsuccess = (event) => success(event.target.result);
-    request.onerror = (event) => error('Database error: ' + event.target.errorCode);
-    return request;
-  });
-}
+class ProdutoView {
+  constructor(model, window, document) {
+    this.model = model;
+    this.window = window;
+    this.document = document;
 
-function selecioneProduto(codigo) {
-  obtenhaProdutoPorCodigo(codigo,
-    (produto) => {
-      PRODUTO_SELECIONADO = produto;
-      exibaDadosProduto(produto)
-    });
-}
+    document.querySelector('#novo')
+      .addEventListener('click', () => this.exibaCadastroProduto());
 
-function excluaProdutoSelecionado(success, error) {
-  return withStore(function (store) {
-    let request = store.delete(PRODUTO_SELECIONADO.codigo);
-    request.onsuccess = (event) => success(event.target.result);
-    request.onerror = (event) => error('Database error: ' + event.target.errorCode);
-    return request;
-  });
-}
+    document.querySelector('#create-cancel')
+      .addEventListener('click', () => this.exibaListagem());
 
-// View
-function exiba(id) {
-  const conteudo = document.getElementById("conteudo");
+    document.querySelector('#view-back')
+      .addEventListener('click', () => this.exibaListagem());
 
-  for (let i = 0; i < conteudo.children.length; i++) {
-    let child = conteudo.children[i];
-    if (child.id != id) {
-      conteudo.children[i].setAttribute("class", "invisible");
-    } else {
-      conteudo.children[i].setAttribute("class", "");
+    document.querySelector('#view-edit')
+      .addEventListener('click', () => this.exibaAlterarProduto());
+  }
+
+  alert(msg, err) {
+    if (err) {
+      msg += `\n${err}`;
     }
-  }
-}
 
-function atualizeListaProdutos(produtos) {
-  const table = document.querySelector("#listar table");
-  table.innerHTML = "";
-
-  for (let i = 0; i < produtos.length; i++) {
-    let produto = produtos[i];
-
-    let tr = document.createElement("tr");
-    tr.setAttribute('onclick', "mostreProduto('" + produto.codigo + "')");
-    table.appendChild(tr);
-
-    let codigo = document.createElement("td");
-    codigo.innerHTML = produto.codigo;
-    tr.appendChild(codigo);
-
-    let nome = document.createElement("td");
-    nome.innerHTML = produto.nome;
-    tr.appendChild(nome);
-  }
-}
-
-function exibaListagem() {
-  obtenhaListaProdutos((produtos) => atualizeListaProdutos(produtos));
-
-  exiba("listar");
-}
-
-function limpeFormulario() {
-  document.querySelectorAll('#editar input').forEach(it => it.value = '');
-}
-
-
-function exibaCadastroProduto() {
-  limpeFormulario();
-  exiba("editar");
-}
-
-function exibaDadosProduto(produto) {
-  if (produto) {
-    document.getElementById('codigo').innerHTML = produto.codigo;
-    document.getElementById('nome').innerHTML = produto.nome;
-    document.getElementById('descricao').innerHTML = produto.descricao;
-    document.getElementById('preco').innerHTML = produto.preco;
-    exiba("exibir");
-  } else {
-    alert("Produto invalido");
-  }
-}
-
-function obtenhaProdutoFormulario() {
-  const formData = new FormData(document.querySelector("form"));
-
-  const produto = {};
-  for (let pair of formData.entries()) {
-    produto[pair[0]] = pair[1];
+    alert(msg);
   }
 
-  return produto;
-}
+  exiba(id) {
+    const conteudo = document.getElementById("conteudo");
 
-window.onload = function () {
-  exibaListagem();
-
-  document.querySelectorAll('form input').forEach(it => {
-    it.onkeypress = function (e) {
-      if (e.which == 10 || e.which == 13) {
-        cadastreProduto();
+    for (let i = 0; i < conteudo.children.length; i++) {
+      let child = conteudo.children[i];
+      if (child.id != id) {
+        conteudo.children[i].setAttribute("class", "invisible");
+      } else {
+        conteudo.children[i].setAttribute("class", "");
       }
     }
-  });
-};
+  }
+
+  atualizeListaProdutos(produtos) {
+    const table = document.querySelector("#listar table");
+    table.innerHTML = "";
+
+    for (let i = 0; i < produtos.length; i++) {
+      let produto = produtos[i];
+
+      let tr = document.createElement("tr");
+      table.appendChild(tr);
+
+      let codigo = document.createElement("td");
+      codigo.innerHTML = produto.id;
+      tr.appendChild(codigo);
+
+      let nome = document.createElement("td");
+      nome.innerHTML = produto.nome;
+      tr.appendChild(nome);
+
+      tr.addEventListener('click',
+        () => this.model.selecioneProduto(produto.id));
+    }
+  }
+
+  exibaListagem() {
+    this.model.obtenhaListaProdutos((produtos) => this.atualizeListaProdutos(produtos));
+
+    this.exiba("listar");
+  }
+
+  limpeFormulario() {
+    document.querySelectorAll('#editar input, #editar textarea').forEach(it => it.value = '');
+  }
+
+  carregueFormulario(produto) {
+    const formData = new FormData(document.querySelector("form"));
+    for (let k in produto) {
+      document.getElementsByName(k)[0].value = produto[k];
+    }
+  }
 
 
-// Controller
-function cadastreProduto() {
-  const produto = obtenhaProdutoFormulario();
+  exibaCadastroProduto() {
+    this.estaCadastrando = true;
+    this.limpeFormulario();
+    this.exiba("editar");
+  }
 
-  if (!produto.codigo || !produto.nome || !produto.preco) {
-    alert("Dados não fornecidos!");
-  } else {
-    insiraProduto(produto,
-      () => exibaListagem(),
-      () => alert("Não foi possível inserir!"));
+  exibaAlterarProduto() {
+    this.estaCadastrando = false;
+    this.model.obtenhaProdutoSelecionado((produto) => {
+      this.carregueFormulario(produto);
+      this.exiba("editar");
+    });
+  }
+
+  onProdutoSelecionado(produto) {
+    if (produto) {
+      document.getElementById('codigo').innerHTML = produto.id;
+      document.getElementById('nome').innerHTML = produto.nome;
+      document.getElementById('descricao').innerHTML = produto.descricao;
+      document.getElementById('preco').innerHTML = produto.preco;
+      this.exiba("exibir");
+    } else {
+      this.view.alert("Produto invalido");
+    }
+  }
+
+  obtenhaProdutoFormulario() {
+    const formData = new FormData(document.querySelector("form"));
+
+    const produto = {};
+    for (let pair of formData.entries()) {
+      produto[pair[0]] = pair[1];
+    }
+
+    return produto;
+  }
+
+  onSubmit(cb) {
+    document.querySelector('#create-submit')
+      .addEventListener('click', () => {
+        cb();
+      });
+
+
+    document.querySelectorAll('form input').forEach(it => {
+      it.addEventListener('keypress', (ev) => {
+        if (ev.which == 10 || ev.which == 13) {
+          cb();
+        }
+      });
+    });
+  }
+
+  onSubmitProduto(cb) {
+    this.onSubmit(() => this.estaCadastrando && cb(this.obtenhaProdutoFormulario()));
+  }
+
+  onChangeProduto(cb) {
+    this.onSubmit(() => !this.estaCadastrando && cb(this.obtenhaProdutoFormulario()));
+  }
+
+  onDeleteProduto(cb) {
+    document.querySelector('#view-delete')
+      .addEventListener('click', cb);
   }
 }
 
-function excluaProduto() {
-  excluaProdutoSelecionado(
-    () => exibaListagem());
+class ProdutoController {
+  constructor(model, view) {
+    this.model = model;
+    this.view = view;
+  }
+
+  cadastreProduto(produto) {
+    if (!produto.nome || !produto.preco) {
+      this.view.alert("Dados não fornecidos!");
+    } else {
+      this.model.insiraProduto(produto,
+        () => this.view.exibaListagem(),
+        (err) => this.view.alert("Não foi possível inserir!", err));
+    }
+  }
+
+  excluaProdutoSelecionado() {
+    this.model.excluaProdutoSelecionado(
+      () => this.view.exibaListagem(),
+      (err) => this.view.alert("Não foi possível excluir!", err));
+  }
+
+  altereProdutoSelecionado(produto) {
+    this.model.atualizeProduto(produto,
+      () => this.view.exibaListagem(),
+      (err) => this.view.alert("Não foi possível inserir!", err));
+  }
+
+  mostreProduto(codigo) {
+    model.selecioneProduto(codigo);
+  }
 }
 
-function mostreProduto(codigo) {
-  selecioneProduto(codigo);
-}
+
+window.onload = function () {
+  let model = new ProdutoModel();
+
+  let view = new ProdutoView(model, window, document);
+  model.addObserver(view);
+
+  let controller = new ProdutoController(model, view);
+
+  view.onDeleteProduto(() => controller.excluaProdutoSelecionado());
+  view.onSubmitProduto((produto) => controller.cadastreProduto(produto))
+  view.onChangeProduto((produto) => controller.altereProdutoSelecionado(produto));
+
+  view.exibaListagem();
+};
