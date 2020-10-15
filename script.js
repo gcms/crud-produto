@@ -1,75 +1,71 @@
-const BASE_URL = "http://localhost:3000/produtos";
-
-
 // Model
 class ProdutoModel {
   observers = [];
   selecionado = null;
 
+  constructor(url) {
+    this.baseUrl = url;
+  }
+
   addObserver(observer) {
     this.observers.push(observer);
   }
 
-  obtenhaListaProdutos(success, error) {
-    return fetch(BASE_URL)
-      .then(response => response.json())
-      .then(products => success(products))
-      .catch(err => error(err.message));
+  obtenhaListaProdutos() {
+    return fetch(this.baseUrl).then(response => response.json());
   }
 
-  obtenhaProdutoPorCodigo(codigo, success, error) {
-    return fetch(BASE_URL + "/" + codigo)
-      .then(response => response.json())
-      .then(product => success(product))
-      .catch(err => error ? error(err.message) : undefined);
-  }
-
-  insiraProduto(produto, success, error) {
-    return fetch(BASE_URL, {
+  insiraProduto(produto) {
+    return fetch(this.baseUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(produto)
-    })
-      .then(response => response.json())
-      .then(product => success(product))
-      .catch(err => error(err.message));
+    }).then(response => response.json());
   }
 
-  atualizeProduto(produto, success, error) {
-    return fetch(BASE_URL + "/" + produto.id, {
+  atualizeProduto(produto) {
+    return fetch(`${this.baseUrl}/${produto.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(produto)
-    })
-      .then(response => response.json())
-      .then(product => success(product))
-      .catch(err => error(err.message));
+    }).then(response => response.json());
+  }
+
+  excluaProdutoSelecionado() {
+    return fetch(`${this.baseUrl}/${this.selecionado.id}`,
+      { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, })
+      .then(response => response.json());
+  }
+
+  obtenhaProdutoPorCodigo(codigo) {
+    return fetch(`${this.baseUrl}/${codigo}`)
+      .then(response => response.json());
   }
 
   selecioneProduto(codigo) {
-    this.obtenhaProdutoPorCodigo(codigo,
-      (produto) => {
-        this.selecionado = produto;
-        this.observers.forEach(it => it.onProdutoSelecionado(produto));
-      });
+    this.obtenhaProdutoPorCodigo(codigo)
+      .then(produto => this.notifyProdutoSelecionado(produto))
+      .catch(err => this.notifyError(err));
   }
 
-  excluaProdutoSelecionado(success, error) {
-    return fetch(BASE_URL + "/" + this.selecionado.id, { method: 'DELETE' })
-      .then(response => response.json()).then(success).catch(err => error ? error(err.message) : undefined);
+  notifyProdutoSelecionado(produto) {
+    this.selecionado = produto;
+    this.observers.forEach(it => it.onProdutoSelecionado(produto));
   }
 
-  obtenhaProdutoSelecionado(success, error) {
-    return success(this.selecionado);
+  notifyError(err) {
+    this.observers.forEach(it => it.onError(err.message));
+  }
+
+  obtenhaProdutoSelecionado() {
+    return Promise.resolve(this.selecionado);
   }
 }
 
 
 class ProdutoView {
-  constructor(model, window, document) {
+  constructor(model) {
     this.model = model;
-    this.window = window;
-    this.document = document;
 
     document.querySelector('#novo')
       .addEventListener('click', () => this.exibaCadastroProduto());
@@ -84,6 +80,11 @@ class ProdutoView {
       .addEventListener('click', () => this.exibaAlterarProduto());
   }
 
+  inicialize() {
+    this.exibaListagem();
+  }
+
+
   alert(msg, err) {
     if (err) {
       msg += `\n${err}`;
@@ -96,40 +97,49 @@ class ProdutoView {
     const conteudo = document.getElementById("conteudo");
 
     for (let i = 0; i < conteudo.children.length; i++) {
-      let child = conteudo.children[i];
+      const child = conteudo.children[i];
       if (child.id != id) {
-        conteudo.children[i].setAttribute("class", "invisible");
+        child.setAttribute("class", "invisible");
       } else {
-        conteudo.children[i].setAttribute("class", "");
+        child.setAttribute("class", "");
       }
     }
   }
 
   atualizeListaProdutos(produtos) {
-    const table = document.querySelector("#listar table");
-    table.innerHTML = "";
+    const parent = document.querySelector("#listar-conteudo");
+
+    while (parent.children.length > 1) {
+      parent.children[1].remove();
+    }
 
     for (let i = 0; i < produtos.length; i++) {
-      let produto = produtos[i];
+      const produto = produtos[i];
 
-      let tr = document.createElement("tr");
-      table.appendChild(tr);
-
-      let codigo = document.createElement("td");
-      codigo.innerHTML = produto.id;
-      tr.appendChild(codigo);
-
-      let nome = document.createElement("td");
-      nome.innerHTML = produto.nome;
-      tr.appendChild(nome);
-
-      tr.addEventListener('click',
-        () => this.model.selecioneProduto(produto.id));
+      const el = this.crieElemento(parent, produto);
+      el.addEventListener('click',
+        () => this.selecioneProduto(produto.id));
     }
   }
 
+  crieElemento(table, produto) {
+    let item = document.createElement("li");
+    table.appendChild(item);
+
+    let codigo = document.createElement("span");
+    codigo.innerHTML = produto.id;
+    item.appendChild(codigo);
+
+    let nome = document.createElement("span");
+    nome.innerHTML = produto.nome;
+    item.appendChild(nome);
+    return item;
+  }
+
   exibaListagem() {
-    this.model.obtenhaListaProdutos((produtos) => this.atualizeListaProdutos(produtos));
+    this.model.obtenhaListaProdutos()
+      .then((produtos) => this.atualizeListaProdutos(produtos))
+      .catch(err => this.alert(err.message));
 
     this.exiba("listar");
   }
@@ -145,7 +155,6 @@ class ProdutoView {
     }
   }
 
-
   exibaCadastroProduto() {
     this.estaCadastrando = true;
     this.limpeFormulario();
@@ -154,19 +163,24 @@ class ProdutoView {
 
   exibaAlterarProduto() {
     this.estaCadastrando = false;
-    this.model.obtenhaProdutoSelecionado((produto) => {
-      this.carregueFormulario(produto);
-      this.exiba("editar");
-    });
+
+    this.model.obtenhaProdutoSelecionado()
+      .then(produto => {
+        this.carregueFormulario(produto);
+        this.exiba("editar");
+      });
+  }
+
+  exibaDadosProduto(produto) {
+    for (let k in produto) {
+      document.getElementById(k).innerHTML = '' + produto[k];
+    }
+    this.exiba("exibir");
   }
 
   onProdutoSelecionado(produto) {
     if (produto) {
-      document.getElementById('codigo').innerHTML = produto.id;
-      document.getElementById('nome').innerHTML = produto.nome;
-      document.getElementById('descricao').innerHTML = produto.descricao;
-      document.getElementById('preco').innerHTML = produto.preco;
-      this.exiba("exibir");
+      this.exibaDadosProduto(produto);
     } else {
       this.view.alert("Produto invalido");
     }
@@ -211,53 +225,61 @@ class ProdutoView {
     document.querySelector('#view-delete')
       .addEventListener('click', cb);
   }
+
+  onSelectProduto(cb) {
+    this.selecioneProduto = cb;
+  }
 }
 
 class ProdutoController {
   constructor(model, view) {
     this.model = model;
     this.view = view;
+
+    view.onSelectProduto((id) => model.selecioneProduto(id));
+    view.onDeleteProduto(() => this.excluaProdutoSelecionado());
+    view.onSubmitProduto((produto) => this.cadastreProduto(produto))
+    view.onChangeProduto((produto) => this.altereProdutoSelecionado(produto));
   }
 
   cadastreProduto(produto) {
     if (!produto.nome || !produto.preco) {
       this.view.alert("Dados não fornecidos!");
     } else {
-      this.model.insiraProduto(produto,
-        () => this.view.exibaListagem(),
-        (err) => this.view.alert("Não foi possível inserir!", err));
+      this.model.insiraProduto(produto)
+        .then(() => this.view.exibaListagem())
+        .catch(err => this.view.alert("Não foi possível inserir!", err.message));
     }
   }
 
   excluaProdutoSelecionado() {
-    this.model.excluaProdutoSelecionado(
-      () => this.view.exibaListagem(),
-      (err) => this.view.alert("Não foi possível excluir!", err));
+    this.model.excluaProdutoSelecionado()
+      .then(() => this.view.exibaListagem())
+      .catch(err => this.view.alert("Não foi possível excluir!", err));
   }
 
   altereProdutoSelecionado(produto) {
-    this.model.atualizeProduto(produto,
-      () => this.view.exibaListagem(),
-      (err) => this.view.alert("Não foi possível inserir!", err));
+    this.model.atualizeProduto(produto)
+      .then(() => this.view.exibaListagem())
+      .catch(err => this.view.alert("Não foi possível inserir!", err));
   }
 
-  mostreProduto(codigo) {
-    model.selecioneProduto(codigo);
+}
+
+class ProdutoApp {
+  constructor() {
+    this.model = new ProdutoModel("http://localhost:3000/produtos");
+    this.view = new ProdutoView(this.model);
+    this.controller = new ProdutoController(this.model, this.view);
+    this.model.addObserver(this.view);
+  }
+
+  inicialize() {
+    this.view.inicialize();
   }
 }
 
-
 window.onload = function () {
-  let model = new ProdutoModel();
-
-  let view = new ProdutoView(model, window, document);
-  model.addObserver(view);
-
-  let controller = new ProdutoController(model, view);
-
-  view.onDeleteProduto(() => controller.excluaProdutoSelecionado());
-  view.onSubmitProduto((produto) => controller.cadastreProduto(produto))
-  view.onChangeProduto((produto) => controller.altereProdutoSelecionado(produto));
-
-  view.exibaListagem();
+  new ProdutoApp().inicialize();
 };
+

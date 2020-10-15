@@ -4,7 +4,13 @@
       "id": 122,
       "nome": "Máquina de Lavar",
       "descricao": "",
-      "preco": "1242.2"
+      "preco": "1242.22"
+    },
+    {
+      "id": 123,
+      "nome": "Liquidificador",
+      "descricao": "",
+      "preco": "123.99"
     }
   ]
 }

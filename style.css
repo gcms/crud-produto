@@ -6,16 +6,28 @@
   display: none;
 }
 
-#listar table {
+#listar ul {
   margin: 0;
   padding: 0;
   border: 0;
+  display: table;
 }
 
-#listar table>tr {
+#listar ul>li:first-child>span {
+  font-weight: bold;
+  padding-bottom: 1em;
+}
+
+#listar ul>li {
+  display: table-row;
   list-style: none;
   padding: 0.5em 0;
   cursor: pointer;
+}
+
+#listar ul>li>span {
+  display: table-cell;
+  padding: 0.2em 1em;
 }
 
 
