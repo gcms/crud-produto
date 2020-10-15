@@ -1,0 +1,10 @@
+{
+  "produtos": [
+    {
+      "id": 122,
+      "nome": "Máquina de Lavar",
+      "descricao": "",
+      "preco": "1242.2"
+    }
+  ]
+}

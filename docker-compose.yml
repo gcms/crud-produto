@@ -1,0 +1,14 @@
+version: "3.3"
+services:
+  web:
+    build: .
+    volumes:
+      - "${PWD}:/usr/local/apache2/htdocs"
+    ports:
+      - "8080:80"
+  json-server:
+    image: "clue/json-server:latest"
+    volumes:
+      - "${PWD}/data:/data"
+    ports:
+      - "3000:80"
